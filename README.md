@@ -13,8 +13,8 @@ This will start the EDMCP server listening on port 5242.
 ### Configuring LM Studio
 
 1. Open LM Studio and navigate to Settings and then the Program tab.
-2.1. Click Install then **"Edit mcp.json***
-2. Fill in these details:
+2. Click Install then **"Edit mcp.json***
+3. Fill in these details:
    - **Name**: `EDMCP` (or whatever you want)
    - **URL**: `http://localhost:5242/mcp`
    
