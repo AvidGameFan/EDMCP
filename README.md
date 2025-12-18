@@ -18,20 +18,20 @@ This will start the EDMCP server listening on port 5242.
    - **Name**: `EDMCP` (or whatever you want)
    - **URL**: `http://localhost:5242/mcp`
    
-   If your server is on a different machine:
-   - **URL**: `http://<your-server-ip>:5242/mcp`
+   If your MCP server is on a different machine than LM Studio:
+   - **URL**: `http://<your-server-ip-or-machine-name>:5242/mcp`
 
    It should look something like this:
    ```json
    {                
-     " mcpServers": {
+     "mcpServers": {
        "ed-mcp-server":{
 	     "url": "http://localhost:5242/mcp"
        }  
      }
    }
    ```
-  If running MCP on a different machine than LM Studio, replace `localhost` with the appropriate IP address or machine name.
+
   If you have other details in mcp.json, take care to maintain the proper syntax and not break it.  Best to save a copy before editing.
 
 3. Click **"Save"**
@@ -42,3 +42,4 @@ Currently, start-edmcp.bat is configured to listen to any machine on the local n
 ## Security Notes
 - This server does not implement authentication or encryption. Use within trusted networks only.
 - Consider running behind a reverse proxy for added security in production environments
+- Images are not stored by the MCP server; the client is responsible for handling received images, and will probably cache them locally.  Somewhere.
