@@ -1,10 +1,11 @@
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using System;
+using System.Collections.Concurrent;
+using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Net.WebSockets;
-using System.Collections.Concurrent;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 
 namespace EDMCP
 {
@@ -38,7 +39,7 @@ namespace EDMCP
         public string SamplerName { get; set; } = "deis";
 
         [JsonPropertyName("use_stable_diffusion_model")]
-        public string UseStableDiffusionModel { get; set; } = "animagineXL40_v4Opt";
+        public string UseStableDiffusionModel { get; set; } = Environment.GetEnvironmentVariable("DEFAULT_MODEL") ?? "animagineXL40_v4Opt";
     }
 
     // JSON-RPC Request/Response types
@@ -170,7 +171,7 @@ namespace EDMCP
         public static async Task Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
-            
+
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowAll", policy =>
@@ -193,9 +194,9 @@ namespace EDMCP
             app.MapGet("/mcp", async context =>
             {
                 context.Response.ContentType = "application/json";
-                await context.Response.WriteAsync(JsonSerializer.Serialize(new 
-                { 
-                    name = "EDMCP", 
+                await context.Response.WriteAsync(JsonSerializer.Serialize(new
+                {
+                    name = "EDMCP",
                     version = "1.0.0",
                     protocols = new[] { "json-rpc" }
                 }));
@@ -213,7 +214,7 @@ namespace EDMCP
                 Console.WriteLine($"[REQUEST] {context.Request.Method} {context.Request.Path} {context.Request.QueryString}");
                 Console.WriteLine($"[HEADERS] Content-Type: {context.Request.ContentType}");
                 Console.WriteLine($"[HEADERS] Accept: {context.Request.Headers["Accept"]}");
-                
+
                 await next();
             });
 
@@ -223,18 +224,18 @@ namespace EDMCP
         private static async Task HandleHttpMcp(HttpContext context)
         {
             var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-            
+
             try
             {
                 // Read the body as string first to see what we're receiving
                 context.Request.EnableBuffering();
                 var bodyText = await new StreamReader(context.Request.Body).ReadToEndAsync();
                 context.Request.Body.Position = 0;
-                
+
                 Console.WriteLine($"[DEBUG] Received request body: {bodyText}");
                 Console.WriteLine($"[DEBUG] Content-Type: {context.Request.ContentType}");
                 Console.WriteLine($"[DEBUG] Method: {context.Request.Method}");
-                
+
                 if (string.IsNullOrWhiteSpace(bodyText))
                 {
                     Console.WriteLine("[DEBUG] Body is empty!");
@@ -258,16 +259,16 @@ namespace EDMCP
                     Console.WriteLine($"[DEBUG] Raw body received: {bodyText}");
                     Console.WriteLine($"[DEBUG] Body length: {bodyText.Length}");
                     Console.WriteLine($"[DEBUG] Body bytes: {string.Join(" ", bodyText.Take(50).Select(c => $"{(int)c:X2}"))}");
-                    
+
                     context.Response.StatusCode = 400;
                     context.Response.ContentType = "application/json";
                     await context.Response.WriteAsync(JsonSerializer.Serialize(new JsonRpcResponse
                     {
-                        Error = new JsonRpcError 
-                        { 
-                            Code = -32700, 
-                            Message = "Parse error - Invalid JSON", 
-                            Data = $"Error: {jsonEx.Message}. Body received: {(bodyText.Length > 100 ? bodyText.Substring(0, 100) + "..." : bodyText)}" 
+                        Error = new JsonRpcError
+                        {
+                            Code = -32700,
+                            Message = "Parse error - Invalid JSON",
+                            Data = $"Error: {jsonEx.Message}. Body received: {(bodyText.Length > 100 ? bodyText.Substring(0, 100) + "..." : bodyText)}"
                         }
                     }, options));
                     return;
@@ -398,7 +399,7 @@ namespace EDMCP
                                             {
                                                 type = "string",
                                                 description = "What to avoid in the generated image (optional)",
-                                                @default = "" //default negative_prompt can be empty string, but not null
+                                                @default = "worst quality, low quality, low score" //default negative_prompt can be empty string, but not null
                                             },
                                             width = new
                                             {
@@ -445,8 +446,8 @@ namespace EDMCP
                                             use_stable_diffusion_model = new
                                             {
                                                 type = "string",
-                                                description = "Model to use",
-                                                @default = "animagineXL40_v4Opt"
+                                                description = "Model to use - specify type (such as SDXL or Flux) or specific model (such as animagineXL40_v4Opt)",
+                                                @default = Environment.GetEnvironmentVariable("DEFAULT_MODEL") ?? "animagineXL40_v4Opt"
                                             }
                                         },
                                         required = new[] { "prompt" }
@@ -522,7 +523,7 @@ namespace EDMCP
             // Fill in defaults for any null/empty optional parameters
             if (string.IsNullOrEmpty(input.NegativePrompt))
             {
-                input.NegativePrompt = string.Empty;  // Empty string instead of null
+                input.NegativePrompt = "worst quality, low quality, low score";  // Needs to be a string (even if empty string) rather than null
             }
 
             Console.WriteLine($"[DEBUG] Tool call parameters: prompt='{input.Prompt}', width={input.Width}, height={input.Height}, steps={input.NumInferenceSteps}");
@@ -530,14 +531,14 @@ namespace EDMCP
             try
             {
                 var images = await GenerateImages(input);
-                
+
                 // Return the images in MCP format
                 // If we have images, return them; otherwise return a text result
                 if (images.Length > 0)
                 {
                     // Return the first image as the primary result
                     var imageData = images[0];
-                    
+
                     // Extract just the base64 data if it's a data URL
                     // Data URLs look like: "data:image/png;base64,iVBORw0KGgo..."
                     var base64Data = imageData;
@@ -553,7 +554,7 @@ namespace EDMCP
                     }
 
                     Console.WriteLine($"[DEBUG] Image data length: {base64Data.Length} bytes (base64)");
-                    
+
                     // The image data from Easy Diffusion is base64-encoded
                     // Return it in the MCP image format wrapped in content array
                     var toolResult = new ToolResult
@@ -602,7 +603,7 @@ namespace EDMCP
             catch (Exception ex)
             {
                 Console.WriteLine($"[DEBUG] Tool call error: {ex.Message}");
-                
+
                 var errorResult = new ToolResult
                 {
                     Content = new List<object>
@@ -626,8 +627,9 @@ namespace EDMCP
 
         private static async Task<string[]> GenerateImages(GenerateImageInput input)
         {
+            //Console.WriteLine($"[DEBUG] Environment.GetEnvironmentVariable(\"EASY_DIFFUSION_ADDRESS\"): {Environment.GetEnvironmentVariable("EASY_DIFFUSION_ADDRESS")} ");
             var easyDiffusionAddress = Environment.GetEnvironmentVariable("EASY_DIFFUSION_ADDRESS") ?? "http://localhost:9000";
-            if (!easyDiffusionAddress.StartsWith("http")) 
+            if (!easyDiffusionAddress.StartsWith("http"))
                 easyDiffusionAddress = "http://" + easyDiffusionAddress;
 
             using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(300) };
@@ -667,6 +669,64 @@ namespace EDMCP
                 ["metadata_output_format"] = "none",
                 ["session_id"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString()
             };
+
+            //Adjust some of the settings for different models, etc.
+            payload["guidance_scale"] = input.GuidanceScale > 7.5 ? 7.5 : input.GuidanceScale;
+            //Most SDXL anime models use clip_skip. 
+            if (input.UseStableDiffusionModel.Contains("animagineXL", StringComparison.InvariantCultureIgnoreCase)
+                || input.UseStableDiffusionModel.Contains("pony", StringComparison.InvariantCultureIgnoreCase)
+                || input.UseStableDiffusionModel.Contains("illustrious", StringComparison.InvariantCultureIgnoreCase))
+            {
+                payload["clip_skip"] = true;
+            }
+            if (input.UseStableDiffusionModel.Contains("flash", StringComparison.InvariantCultureIgnoreCase)
+                || input.UseStableDiffusionModel.Contains("turbo", StringComparison.InvariantCultureIgnoreCase)
+                || input.UseStableDiffusionModel.Contains("schnell", StringComparison.InvariantCultureIgnoreCase)
+                || input.UseStableDiffusionModel.Contains("lightning", StringComparison.InvariantCultureIgnoreCase))
+
+            {
+                payload["num_inference_steps"] = input.NumInferenceSteps > 12 ? 12 : input.NumInferenceSteps;  //Don't need so many steps for flash/turbo models
+            }
+            //Some models have the clip & text encoders baked-in, but if we're not going to allow an option, we have to make some assumptions.
+            if (input.UseStableDiffusionModel.Contains("flux", StringComparison.InvariantCultureIgnoreCase))
+            {
+                payload["use_vae_model"] = "ae";
+                payload["guidance_scale"] = 1;
+                payload["use_text_encoder_model"] = "['clip_l', 't5xxl_fp16']";
+            }
+            if (input.UseStableDiffusionModel.Contains("chroma", StringComparison.InvariantCultureIgnoreCase))
+            {
+                payload["use_vae_model"] = "ae";
+                if (input.UseStableDiffusionModel.Contains("flash", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    payload["guidance_scale"] = 1;
+                }
+                else
+                {
+                    payload["guidance_scale"] = 4;
+                }
+                payload["use_text_encoder_model"] = "t5xxl_fp16";
+            }
+            //if a model type is specified in the model name, map to a specific one
+            switch (payload["use_stable_diffusion_model"]?.ToString()?.ToLower())
+            {
+                case "anime":
+                    payload["use_stable_diffusion_model"] = "animagineXL_v4Opt";
+                    break;
+                //case string s when s.Contains("illustrious"):
+                case "sdxl":
+                    payload["use_stable_diffusion_model"] = "sd_xl_base_1.0_0.9vae";
+                    break;
+                case "sd":
+                    payload["use_stable_diffusion_model"] = "sd-v1-5";
+                    break;
+                case "flux":
+                    payload["use_stable_diffusion_model"] = "flux1-dev-bnb-nf4-v2";
+                    break;
+                case "chroma":
+                    payload["use_stable_diffusion_model"] = "Chroma1-HD-Q6_K";
+                    break;
+            }
 
             Console.WriteLine($"[DEBUG] Sending to Easy Diffusion: prompt='{payload["prompt"]}', negative_prompt='{payload["negative_prompt"]}'");
 
@@ -872,7 +932,7 @@ namespace EDMCP
                         if (status == "failed")
                         {
                             var errorMsg = "Unknown error";
-                            if (root.TryGetProperty("error", out var errElem))
+                            if (root.TryGetProperty("detail", out var errElem))
                             {
                                 errorMsg = errElem.GetString() ?? "Unknown error";
                             }
