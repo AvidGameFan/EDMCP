@@ -4,6 +4,7 @@ REM Sets environment variables and runs the production executable
 
 set ASPNETCORE_URLS=http://0.0.0.0:5242
 set EASY_DIFFUSION_ADDRESS=http://localhost:9000
+REM set DEFAULT_MODEL=sd-v1-5
 
 echo.
 echo ======================================

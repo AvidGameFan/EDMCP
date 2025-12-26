@@ -4,6 +4,7 @@ REM This script is designed to run from the EDMCP release package root directory
 
 set ASPNETCORE_URLS=http://0.0.0.0:5242
 set EASY_DIFFUSION_ADDRESS=http://localhost:9000
+set DEFAULT_MODEL=sd-v1-5
 
 REM Uncomment and modify the line below if Easy Diffusion is on a different machine
 REM set EASY_DIFFUSION_ADDRESS=http://192.168.1.100:9000
