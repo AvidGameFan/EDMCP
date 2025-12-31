@@ -1,6 +1,6 @@
 # EDMCP - Easy Diffusion Model Context Protocol Server
 
-A C# MCP (Model Context Protocol) server that bridges LM Studio with Easy Diffusion for image generation.
+A C# MCP (Model Context Protocol) server that bridges LM Studio (or other LLM UI) with Easy Diffusion for image generation.
 
 ## Features
 
@@ -19,6 +19,14 @@ A C# MCP (Model Context Protocol) server that bridges LM Studio with Easy Diffus
 
 ### Start the Server
 
+#### E-Z start (Easy Diffusion on same machine)
+
+* Unzip EDMCP_server.zip
+* Run start-edmcp.bat
+
+If Easy Diffusion is running on a different machine, edit `start-edmcp.bat` to set the `EASY_DIFFUSION_ADDRESS` environment variable accordingly.
+
+#### Using the CLI
 ```bash
 dotnet run --project EDMCP
 ```
@@ -173,9 +181,7 @@ Calls the generate_image tool to create images.
 ### Setup Steps
 
 1. **Start the EDMCP server** (this application)
-   ```bash
-   dotnet run --project EDMCP
-   ```
+   (See above)
 
 2. **Open LM Studio** and go to **Settings** ? **MCP Servers**
 
